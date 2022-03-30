@@ -1,9 +1,12 @@
 require_relative "hang_boards"
 require_relative "word_gen"
+require_relative "save_load"
 require 'yaml'
 
 class GameManager
 
+  include Save
+  include Load
   include Board
   include WordGenerator
   
@@ -31,10 +34,15 @@ class GameManager
     round()
   end
 
-  def round()
+  def round()   
     tier(@guesses)
     all_guesses = @all_guesses.join(", ")
     puts "\nYou have gussesed: #{all_guesses}"
+    if @guesses == 1
+      puts "\nYou have #{@guesses}/6 mistake"
+    else
+      puts "\nYou have #{@guesses}/6 mistakes"
+    end
     
     output_string = Array.new()
     @word_array.each do |space|
@@ -61,27 +69,12 @@ class GameManager
         word = @word_array.join('')
         all_guessed = @all_guesses.join(", ")
 
-        data = [total_guesses, word, all_guessed]
-
-        fname = "data.yaml"
-
-        if(File.exists?(fname))
-          puts "\nWarning: This will overwrite your previous save. Type \"1\" to continue."
-          var = gets.chomp()
-          if var == "1"
-            File.open(fname, "w") {|file| file.write(data.to_yaml)}
-            puts "\nGame Saved"
-            round()
-          else
-            round()
-          end
-        else
-          file = File.open(fname, "w")
-          file.write(total_guesses.to_yaml)
-          file.write(word.to_yaml)
-          file.write(all_guessed.to_yaml)
-          file.close
+        var = save_game(word, total_guesses, all_guessed)
+        if var == 1
           puts "\nGame Saved"
+          round()
+        else
+          round()
         end
       end
       
@@ -95,12 +88,12 @@ class GameManager
       end
     
       if @word_array.include?(guess)
-        puts "\"#{guess}\" is in the word!"
+        puts "\n\"#{guess}\" is in the word!"
         @guessed.push(guess)
         @all_guesses.push(guess)
         round()
       else
-        puts "\"#{guess}\" is not in the word"
+        puts "\n\"#{guess}\" is not in the word"
         @all_guesses.push(guess)
         @guesses += 1
         round()
@@ -115,11 +108,22 @@ class GameManager
   end
 
   def replay()
-    puts "\nPlay again? Type \"1\" to play again, type \"2\" to exit"
+    puts "\nPlay again? Type \"1\" to play again, type \"2\" to load a previous save, type \"3\" to exit"
     var = gets.chomp()
     if var == "1"
       game = GameManager.new.new_game()
     elsif var == "2"
+      data = load_game_save()
+      unless data == 0
+        word = data[1]
+        guesses = data[0]
+        all_guesses = data[2].split(", ")
+        game = GameManager.new.load_game(word, guesses, all_guesses)
+      else
+        puts "No saved game found"
+        replay()
+      end
+    elsif var == "3"
       exit
     else
       replay()
